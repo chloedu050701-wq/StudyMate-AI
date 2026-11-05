@@ -481,7 +481,7 @@ new_goal = st.number_input(
 if st.button("Update Goal"):
 
     st.session_state.study_goal = new_goal
-    st.sucess("Your daily goal has been updated")
+    st.success("Your daily goal has been updated")
     st.rerun()
 
 #============================
