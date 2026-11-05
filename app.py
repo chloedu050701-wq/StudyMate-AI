@@ -14,6 +14,7 @@ if "tasks" not in st.session_state:
 if "user_name" not in st.session_state:
     st.session_state.user_name = ""
 
+
 # Intitialize session state variables
 if "completed_quesstions" not in st.session_state:
     st.session_state.completed_questions = 0
@@ -28,6 +29,8 @@ if "current_question" not in st.session_state:
     st.session_state.current_question = 0
 
 from datetime import datetime
+
+
 
 practice_subject = st.session_state.get("practice_subject", "Economics")
 
@@ -763,7 +766,72 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-    
+
+# ==========================
+# 11. PDF Upload & Reader
+# ==========================
+
+import streamlit as st
+from pypdf import PdfReader
+from io import BytesIO
+
+st.markdown("---")
+
+st.markdown(
+    """
+    <h2 style="color:#477C9B;">
+        ㉿ My PDF Library
+    </h2>
+    <p style="color:#8296A8;">
+        Upload your study materials and let StudyMate AI read them.
+    </p>
+    """,
+    unsafe_allow_html=True
+)
+
+uploaded_pdf = st.file_uploader(
+    "Upload your PDF study material",
+    type=["pdf"],
+    help="Choose a PDF file from your computer."
+)
+
+if uploaded_pdf is not None:
+
+    try:
+        pdf = PdfReader(BytesIO(uploaded_pdf.getvalue()))
+
+        text_content = ""
+
+        for page in pdf.pages:
+            page_text = page.extract_text() or ""
+            text_content += page_text + "/n"
+
+        st.success("PDF uploaded successfully!")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+           st.metric("Total Pages", len(pdf.pages0)) 
+
+        with col2:
+            st.metric("Characters", len(text_content))
+
+        st.markdown("### ✉ Extracted Content")
+
+        if text_content.strip():
+            st.text_area(
+                "PDF Text",
+                value=text_content,
+                height=400
+            )
+        else:
+            st.warning(
+                "No readable text found."
+                "This PDF may contain scanned images."
+            )
+    except Exception as e:
+        st.error(f"Could not rea PDF: {e}")
+
 
 
 
