@@ -14,6 +14,19 @@ if "tasks" not in st.session_state:
 if "user_name" not in st.session_state:
     st.session_state.user_name = ""
 
+# Intitialize session state variables
+if "completed_quesstions" not in st.session_state:
+    st.session_state.completed_questions = 0
+
+if "total_questions" not in st.session_state:
+    st.session_state.total_questions = 0
+
+if "score" not in st.session_state:
+    st.session_state.score = 0
+
+if "current_question" not in st.session_state:
+    st.session_state.current_question = 0
+
 from datetime import datetime
 
 practice_subject = st.session_state.get("practice_subject", "Economics")
@@ -607,7 +620,7 @@ if practice_subject == "Economics":
 
         elif answer == "The responsiveness of quantity demanded to a price change":
 
-            st.cussess("Correct! Well done! ☺")
+            st.success("Correct! Well done! ☺")
 
             st.session_state.completed_questions += 1
 
