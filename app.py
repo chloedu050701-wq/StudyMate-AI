@@ -624,7 +624,7 @@ elif page == "☃ AI Learning":
                          """
 
                          response = client.models.generate_content(
-                             model="gemini-flash-latest",
+                             model="gemini-3.8-flash",
                              contents=prompt
                          )
 
@@ -795,7 +795,7 @@ elif page == "♬ Practice Lab":
                         """
 
                         response = client.models.generate_content(
-                            model="gemini-flash-lastest",
+                            model="gemini-3.8-flash",
                             contents=prompt
                         )
 
