@@ -624,7 +624,7 @@ elif page == "☃ AI Learning":
                          """
 
                          response = client.models.generate_content(
-                             model="gemini-flash-lastest",
+                             model="gemini-flash-latest",
                              contents=prompt
                          )
 
