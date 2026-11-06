@@ -1,41 +1,12 @@
 import streamlit as st
-if "study_goal" not in st.session_state:
-    st.session_state.study_goal = 5
-# Initialize session state variables
-if "completed_tasks" not in st.session_state:
-    st.session_state.completed_tasks = 0
-
-if "total_tasks" not in st.session_state:
-    st.session_state.total_tasks = 0
-
-if "tasks" not in st.session_state:
-    st.session_state.tasks = []
-
-if "user_name" not in st.session_state:
-    st.session_state.user_name = ""
-
-
-# Intitialize session state variables
-if "completed_quesstions" not in st.session_state:
-    st.session_state.completed_questions = 0
-
-if "total_questions" not in st.session_state:
-    st.session_state.total_questions = 0
-
-if "score" not in st.session_state:
-    st.session_state.score = 0
-
-if "current_question" not in st.session_state:
-    st.session_state.current_question = 0
-
+from google import genai
+from pypdf import PdfReader
+from io import BytesIO
 from datetime import datetime
 
 
-
-practice_subject = st.session_state.get("practice_subject", "Economics")
-
 # =======================
-# 1. 页面设置
+# 1. PAGE CONFIGURATION
 # =======================
 
 st.set_page_config(
@@ -46,42 +17,66 @@ st.set_page_config(
 )
 
 # =======================
-# 2. 初始化数据
+# 2. SESSION STATE
 # =======================
 
-st.set_page_config(
-    page_title="StudyMate AI",
-    page_icon="✌",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+default_values = {
+    "study_goal": 5,
+    "completed_tasks": 0,
+    "completed_questions": 0,
+    "notes": [],
+    "tasks": [],
+    "user_name": "",
+    "chat_history": [],
+    "pdf_text": "",
+    "pdf_name": "",
+    "daily_goal": "",
+    "practice_answer": None
+}
+
+for key, value in default_values.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
 
 # =======================
-# 3. 全局样式
+# 3. GEMINI CONFIGURATION
+# =======================
+
+def get_gemini_client():
+
+    try:
+        api_key = st.secrets["GEMINI_API_KEY"]
+
+        client = genai.Client(api_key=api_key)
+
+        return client
+    except Exception:
+        return None
+
+# =======================
+# 4.GLOBAL CSS
 # =======================
 
 st.markdown(
     """
     <style>
-    /* 整体背景 */
+    /* Global background */
+
     .stApp {
         background-color: #F7F9FC;
         color: #344054;
     }
 
-    /* 主内容区域 */
+    /* Main content */
+
     .block-container {
         max-width: 1400px;
         padding-top: 2.5rem;
         padding-bottom: 4rem;
     }
 
-    /* 隐藏顶部装饰 */
-    [data-testid="stHeader"] {
-        background: transparent;
-    }
+    /* Sidebar */
 
-    /* 侧边栏 */
     [data-testid="stSidebar"] {
         background: #FFFFFF;
         border-right: 1px solid #E9EEF5;
@@ -91,7 +86,16 @@ st.markdown(
         color: #344054;
     }
 
-    /* 标题 */
+    [data-testid="stSidebar"] {
+        min-width: 290px !important;
+    }
+    
+
+   
+       
+
+    /* Titles */
+
     .main-title {
         font-size: 38px;
         font-weight: 800;
@@ -106,14 +110,16 @@ st.markdown(
         margin-bottom: 28px;
     }
 
-    /* 渐变字体 */
+    /* Gradient text */
+
     .gradient-text {
         background: linear-gradient(90deg, #72A9E8, #82CDB7);
         -webkit-background-clip: text;
         webkit-text-fill-color: transparent;
     }
 
-    /* 首页欢迎卡片 */
+    /* Hero card */
+
     .hero-card {
         background: linear-gradient(
             115deg,
@@ -149,7 +155,8 @@ st.markdown(
         line-height: 1.7;
     }
 
-    /* 区域标题 */
+    /* Section heading */
+
     .section-heading {
         color: #344054;
         font-size: 21px;
@@ -158,7 +165,8 @@ st.markdown(
         margin-bottom: 16px;
     }
 
-    /* 数据卡片 */
+    /* Metric cards */
+
     .metric-card {
     background: #FFFFFF;
     border: 1px solid #EDF0F5;
@@ -186,7 +194,8 @@ st.markdown(
         margin-top: 5px;
     }
 
-    /* 功能卡片 */
+    /* Feature cards */
+
     .feature-card {
         background: #FFFFFF;
         border: 1px solid #EDF0F5;
@@ -214,7 +223,8 @@ st.markdown(
         line-height: 1.7;
     }
 
-    /* 输入框 */
+    /* Inputs */
+
     .stTextInput input,
     .stTextArea textarea {
         background-color: #FFFFFF !important;
@@ -223,19 +233,8 @@ st.markdown(
         border-radius: 10px !important;
     }
 
-    .stTextInput input:focus,
-    .stTextArea textarea:focus {
-        border-color: #8BBCEB !important;
-        box-shadow: 0 0 0 2px rgba(139, 188, 235, 0.15) !important;
-    }
+    /* Buttons*/
 
-    /* 下拉框 */
-    .stSelectbox div[data-baseweb="select"] {
-        background-color: #FFFFFF !important;
-        border-radius: 10px !important;
-    }
-
-    /* 按钮 */
     .stButton button {
         background: linear-gradient(90deg, #82AFE5, #8BCDB7);
         color: #FFFFFF;
@@ -246,12 +245,14 @@ st.markdown(
         transition: 0.2s;
     }
 
-    /* 进度条 */
+    /* Progress bar */
+
     .stProgress > div > div > div {
         background: linear-gradient(90deg, #8BBCEB, #A8DCC5);
     }
 
-    /* 文件上传 */
+    /* File uploader */
+
     [data-testid="stFileUploader"] {
         background: #FFFFFF;
         border: 1px dashed #B8D3E8;
@@ -259,12 +260,8 @@ st.markdown(
         padding: 15px;
     }
 
-    /* 分隔线 */
-    hr{
-       border-color: #E9EEF5;
-    }
+    /* Footer */
 
-    /* 页脚 */
     .footer{
         color: #A3ADBC;
         text-align: center;
@@ -278,242 +275,208 @@ st.markdown(
 )
 
 # ============================
-# 4.侧边栏
+# 5. SIDEBAR NAVIGATION
 # ============================
 
 with st.sidebar:
 
-    st.markdown(
-        """
-       <div style="padding: 15px 5px 25px 5px;">
-           <div style="font-size: 25px; font-weight: 850; color: #344054;">
-                ✌ Study<span style="color:#80B9E8;">Mate</span>
-           </div>
-           <div style="font-size: 10px; letter-spacing: 2px; color:#9AA8B9;">
-               YOUR PERSONAL LEARNING SPACE
-    <div>
-    """, 
-    unsafe_allow_html=True
-)
+    st.markdown("# ✌ StudyMate")
 
-st.markdown("---")
+    st.caption("AI Learning Workspace")
 
-st.markdown("##### WORKSPACE")
+    st.divider()
 
-page = st.radio(
-    "Navigation",
-    [
-        "㊣ Dashboard",
-        "✍ Knowledge Hub",
-        "☃ AI Practice Lab",
-        "▦ Learning Analytics"
-        "㉿ My Library"
-    ],
-    label_visibility="collapsed"
-)
+    st.markdown("### WORKSPACE")
+        
+    page = st.radio(
+        "Navigation",
+        [
+            "㊣ Dashboard",
+            "✍ Knowledge Hub",
+            "☃ AI Learning",
+            "♬ Practice Lab",
+            "▦ Learning Analytics",
+            "㉿ My Library"
+        ],
+        label_visibility="collapsed"
+    )
+    
+        
 
-st.markdown("---")
+    st.divider()
 
-st.markdown("##### ۞ DAILY GOAL")
+    subject = st.selectbox(
+        "✌ Current Subject",
+        [
+           "VWL",
+           "Mathematik",
+           "Deutsch",
+           "English"
+       ]   
+    )
 
-st.write(
-    f"{st.session_state.completed_tasks} / "
-    f"{st.session_state.get('study_goal', 5)} tasks"
-)
+    st.divider()
 
-progressc= min(
-    st.session_state.completed_tasks / st.session_state.study_goal,
-    1.0
-)
-
-st.progress(progressc)
-
-st.markdown("---")
-
-st.caption("STUDYMATE AI · VERSION 0.1")
+    st.caption("YOUR PERSONAL LEARNING SPACE")
+    st.caption("Learn at your own space.")
+    st.caption("StudyMate AI © 2026")
 
 #==================================
-# 5. Dashboard
+# 6. Dashboard
 #==================================
 if page == "㊣ Dashboard":
-
     st.markdown(
         """
-       <div class="main-title">
-           Good to see you! <span class="gradient-text"> ☁ </span>
+    <div class="main-title">
+           Good to see you! 
+           <span class="gradient-text"> ☁ </span>
+       </div>
+
        <div class="subtitle">
            A little progress each day adds up to big results.
-    </div>
-    """, 
-     unsafe_allow_html=True
-)
-
-st.markdown(
-    """
-   <div class="hero-card">
-       <div class="hero-label">YOUR PERSONAL SPACE</div>
-       <div class="hero-heading">
-           Learn at your own pace.<br>
-           Grow every day.
        </div>
-       <div class="hero-description">
-           Organize your knowledge, practice new skills,
-           and keep track of your learning journey.
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    '<div class="section-heading">Your Overview</div>',
-    unsafe_allow_html=True
-)
-
-col1, col2,col3, col4 = st.columns(4)
-
-with col1:
-    st.markdown(
-        """
-       <div class="metric-card">
-           <div class="metric-label">✍ SAVED NOTES</div>
-           <div class="metric-value">{len(st.session_state.notes)}</div>
-           <div class="metric-caption">Your Knowledge collection</div>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-with col2:
-    st.markdown(
-        """
-       <div class="metric-card">
-            <div class="metric-label">☃ QUESTIONS DONE</div>
-            <div class="metric-value">{len(st.session_state.completed_questions)}</div>
-            <div class="metric-caption">Keep practicing!</div>
-    </div>
-    """,
-    unsafe_allow_html=True
-) 
-
-with col3:
-    st.markdown(
-        """
-       <div class="metric-card">
-            <div class="metric-label">㉿ DAILY GOAL</div>
-            <div class="metric-value">
-                {st.session_state.completed_tasks}/{st.session_state.study_goal}
-            </div>
-            <div class="metric-caption">Tasks completed today</div>
-    </div>
-    """,
-    unsafe_allow_html=True
-) 
-
-with col4:
-    st.markdown(
-        """
-       <div class="metric-card">
-            <div class="metric-label">books YOUR STATUS</div>
-            <div class="metric-value" style="font-size:24px;">READY</div>
-            <div class="metric-caption">Let's start learning</div>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    '<div class="section-heading">Explore Your Workspace</div>',
-    unsafe_allow_html=True
-)
-
-f1, f2, f3 = st.columns(3)
-
-with f1:
-   st.markdown(
-           """
-          <div class="feature-card">
-               <div class="feature-icon">✍</div>
-               <div class="feature-title">Knowledge Hub</div>
-               <div class="feature-description">
-                   Save your notes and organize everything you learn.
-               </div>
-       </div>
-       """,
+       """, 
        unsafe_allow_html=True
-   )
-
-with f2:
-    st.markdown(
-              """
-             <div class="feature-card">
-                  <div class="feature-icon">☃</div>
-                  <div class="feature-title">Practice Lab</div>
-                  <div class="feature-description">
-                      Test your knowledge and learn from your mistakes.
-                  </div>
-          </div>
-          """,
-          unsafe_allow_html=True
     )
 
-with f3:
     st.markdown(
-              """
-             <div class="feature-card">
-                  <div class="feature-icon">▦</div>
-                  <div class="feature-title">Learning Analytics</div>
-                  <div class="feature-description">
-                      Track your progress and celebrate every achievement.
-                  </div>
-          </div>
-          """,
-          unsafe_allow_html=True
+        """
+<div class="hero-card">
+<div class="hero-label">YOUR PERSONAL SPACE</div>
+<div class="hero-heading">Learn at your own pace.<br>Grow every day.</div>
+<div class="hero-description">Organize your knowledge, practice new skills,and keep track of your learning journey.</div>
+</div>
+        """,
+        unsafe_allow_html=True
     )
 
-st.markdown("---")
+    st.markdown(
+        '<div class="section-heading">Your Overview</div>',
+        unsafe_allow_html=True
+    )
 
-st.markdown("### ۞ Set Your DAILY GOAL")
+    col1, col2,col3, col4 = st.columns(4)
 
-new_goal = st.number_input(
-    "How much study tasks would you like to complete?",
-    min_value=1,
-    max_value=20,
-    value=st.session_state.study_goal
-)
+    with col1:
 
-if st.button("Update Goal"):
+        st.metric(
+            "★ SAVED NOTES",
+            len(st.session_state.notes)
+        )
 
-    st.session_state.study_goal = new_goal
-    st.success("Your daily goal has been updated")
-    st.rerun()
+    with col2:
+
+        st.metric(
+            "♣ QUESTIONS DONE",
+            st.session_state.completed_questions
+        )
+
+    with col3:
+
+        st.metric(
+           "❁ DAILY GOAL",
+           f"{st.session_state.completed_tasks}/{st.session_state.study_goal}" 
+        )
+
+    with col4:
+
+        st.metric(
+            "✌ CURRENT SUBJECT",
+            subject
+        )
+
+    st.markdown("---")
+    st.markdown("### Explore Your Workplace")
+
+    f1, f2, f3 = st.columns(3)
+
+    with f1:
+        st.markdown(
+            """
+            <div class="feature-card">
+                <div class="feature-icon">✍</div>
+                <div class="feature-title">Knowledge Hub</div>
+                <div class="feature-description">
+                    Save your notes and organize everything you learn.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    with f2:
+        st.markdown(
+            """
+            <div class="feature-card">
+                <div class="feature-icon">☃</div>
+                <div class="feature-title">AI Learning</div>
+                <div class="feature-description">
+                    Ask questions and understand difficult concepts.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    with f3:
+        st.markdown(
+            """
+            <div class="feature-card">
+                <div class="feature-icon">▦</div>
+                <div class="feature-title">Learning Analytics</div>
+                <div class="feature-description">
+                    Track your progress and celebrate every achievement.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    st.markdown("---")
+
+    st.markdown("### ۞ Set Your DAILY GOAL")
+
+    new_goal = st.number_input(
+        "How much study tasks would you like to complete?",
+        min_value=1,
+        max_value=20,
+        value=st.session_state.study_goal
+    )
+
+    if st.button("Update Goal"):
+
+      st.session_state.study_goal = new_goal
+      st.success("Your daily goal has been updated")
+      st.rerun()
 
 #============================
-# 6. Knowledge Hub
+# 7. KNOWLEDGE HUB
 #============================
 
 elif page == "✍ Knowledge Hub":
 
     st.markdown(
-              """
-             <div class="main-title">
-                 Knowledge <span class="gradient-text">Hub.</span>
-              </div>
-              <div class="subtitle">
-                  Collect ideas. Build your knowledge.
-              </div>
-              """,
-              unsafe_allow_html=True
+        """
+        <div class="main-title">
+            Knowledge <span class="gradient-text">Hub.</span>
+        </div>
+
+        <div class="subtitle">
+            Collect ideas. Build your knowledge.
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
-    st.markdown("### ✪ Create a New Note")
+    st.markdown("### ★ Create a New Note")
 
-    subject = st.selectbox(
+    note_subject = st.selectbox(
         "Choose a subject",
         [
-            "Economics",
-            "Mathematics",
-            "English",
-            "German"
+            "VWL",
+            "Mathematik",
+            "Deutsch",
+            "English"
         ]
     )
 
@@ -532,12 +495,14 @@ elif page == "✍ Knowledge Hub":
 
          if note_title.strip() and note_content.strip():
 
-             st.session_state.notes.append({
-                 "subject": subject,
-                 "title": note_title,
-                 "content": note_content,
-                 "date": datetime.now().strftime("%Y-%m-%d %H:%M")
-             })
+             st.session_state.notes.append(
+                 {
+                     "subject": note_subject,
+                     "title": note_title,
+                     "content": note_content,
+                     "date": datetime.now().strftime("%Y-%m-%d %H:%M")
+                 }
+             )
 
              st.success("Note saved successfully!")
              st.rerun()
@@ -553,7 +518,7 @@ elif page == "✍ Knowledge Hub":
         for note in reversed(st.session_state.notes):
 
             with st.expander(
-                f"♟ {note['title']} · {note['subject']}"
+                f"✌ {note['title']} · {note['subject']}"
             ):
 
                st.write(note["content"])
@@ -561,83 +526,294 @@ elif page == "✍ Knowledge Hub":
     else:
         st.info("Your knowledge collection is empty. Create your first note!")
  #===============================
- # 7. AI Practice Lab
+ # 8. AI Learning
  # ===============================
            
-elif page == "☃ AI Practice Lab":
+elif page == "☃ AI Learning":
 
      st.markdown(
          """
-         <div class="main-title">
-             Practice <span class="gradient-text">Lab.</span>
-             </div>
-             <div class="subtitle">
-                 Challenge yourself. Turn knowledge into skills.
-         </div>
+<div class="main-title">
+    AI <span class="gradient-text">Learning.</span>
+</div>
+<div class="subtitle">
+    Your Personal AI learning assistant.
+</div>
+<div class="hero-card">
+    <div class="hero-label">POWERED BY GEMINI AI</div>
+    <div class="hero-heading">
+        Ask. Understand.<br>
+        Learn smarter.
+    </div>
+    <div class="hero-description">
+        Ask questions about your subjects
+        and get explanations from AI.
+    </div>
+</div>
          """,
          unsafe_allow_html=True
      )
 
-     st.markdown(
-         """
-         <div class="hero-card">
-             <div class="hero-label">YOUR PERSONAL SPACE</div>
-             <div class="hero-heading">Practice makes progress.</div>   
-             <div class="hero-description">
-                 Start with sample questions. AI-powered exercises
-                 will be introduced in a future version.
-             </div>
-         </div>
-         """,
-         unsafe_allow_html=True
-     )
+     client = get_gemini_client()
 
-     practice_subject = st.selectbox(
-         "Select a subject",
-         ["Economics", "Accounting", "Business Studies"]
-     )
+     if client is None:
 
-if practice_subject == "Economics":
+         st.error(
+             "Gemini API connection unavailable."
+             "Please check your Streamlit Secrets configuration."
+         )
 
-    st.markdown("### 〠 Sample Question")
+     else:
 
-    st.write(
-        "**What does price elasticity of demand measure?**"
+         st.success("Gemini AI is connected.")
+
+         st.markdown(f"### Current Subject: {subject}")
+
+         use_pdf = st.checkbox(
+             "Use my uploaded PDF as learning context",
+             value=bool(st.session_state.pdf_text)
+         )
+
+         user_question = st.text_area(
+             "What would you like to ask?",
+             placeholder="For example: Explain price elasticity of demand...",
+             height=130
+         )
+
+         if st.button("Ask StudyMate AI"):
+             
+             if not user_question.strip():
+                 
+                 st.warning("Please enter your question.")
+
+             else:
+
+                 with st.spinner("StudyMate AI is thinking..."):
+
+                     try:
+
+                         prompt = f"""
+                         You are StudyMate AI, a helpful educational assistant.
+
+                         The student's current subjeck is: {subject}
+
+                         Please explain concepts clearly and step by step.
+
+                         Use examples when useful.
+
+                         Answer in the same language as the student's question.
+
+                         """
+
+                         if use_pdf and st.session_state.pdf_text:
+
+                             prompt += f"""
+                             
+                             The student has uploaded this learning material:
+
+                             {st.session_state.pdf_text[:30000]}
+                            
+                             Use this material as the primary reference.
+
+                             """
+
+                         prompt += f"""
+                         Student's question:
+
+                         {user_question}
+                         """
+
+                         response = client.models.generate_content(
+                             model="gemini-flash-lastest",
+                             contents=prompt
+                         )
+
+                         answer = response.text or "No response received."
+
+                         st.session_state.chat_history.append(
+                             {
+                                 "question": user_question,
+                                 "answer": answer
+                             }
+                         )
+                     except Exception as e:
+
+                         st.error(f"AI request failed: {e}")
+
+         if st.session_state.chat_history:
+
+             st.markdown("---")
+
+             st.markdown("### Conversation History")
+
+             for chat in reversed(st.session_state.chat_history):
+
+                 with st.expander(chat["question"]):
+
+                     st.markdown(chat["answer"])
+
+             if st.button("Clear Concersation:"):
+
+                 st.session_state.chat_history = []
+
+                 st.rerun()
+
+# =========================
+# 9. PRACTICE LAB
+# =========================
+
+elif page == "♬ Practice Lab":
+
+    st.markdown(
+        """
+        <div class="main-title">
+            Practice <span class="gradient-text">Lab.</span>
+        </div>
+
+        <div class="subject">
+            Challenge yourself. Turn knowledge into skills.
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
-    answer = st.radio(
-        "Choose your answer:",
+    st.markdown(
+        """
+        <div class="hero-card">
+            
+            <div class="hero-label">
+                YOUR PERSONAL PRACTICE SPACE
+            </div>
+
+            <div class="hero-heading">
+                Practice makes progress.
+            </div>
+
+            <div class="hero-description">
+                Test your knowledge and learn from your mistakes.
+            </div>
+
+        <div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    practice_subject = st.selectbox(
+        "Select a subject",
         [
-            "The change in supply caused by income",
-            "The responsiveness of quantity demanded to a price change",
-            "The total revenue of a company",
-            "The production cost of a product"
-        ],
-        index=None
+            "VWL",
+            "Mathematik",
+            "Deutsch",
+            "English"
+        ]
     )
 
-    if st.button("Check answer"):
+    if practice_subject == "VWL":
 
-        if answer is None:
-            st.warning("Please select an answer.")
+        st.markdown("### Sample Question")
 
-        elif answer == "The responsiveness of quantity demanded to a price change":
+        st.write(
+            "**What does price elasticity of demand measure?**"
+        )
 
-            st.success("Correct! Well done! ☺")
+        answer = st.radio(
+            "Choose your answer:",
+            [
+                "The change in supply caused by income",
+                "The responsiveness of quantity demanded to a price change",
+                "The total revenue of a company",
+                "The production cost of a product"
+            ],
+            index=None,
+            key="vwl_sample_answer"
+        )
 
-            st.session_state.completed_questions += 1
+        if st.button("Check answer"):
+
+            if answer is None:
+
+                st.warning("Please select an answer.")
+
+            elif answer == "The responsiveness of quantity demanded to a price change":
+
+                st.success("Correct! Well done!")
+
+                st.session_state.completed_questions += 1
+
+            else:
+
+                st.error(
+                    "Not quite! Price elasticity measures"
+                    "how strongly quantity demanded reacts to a price change."
+                )
 
         else:
-            st.error(
-                "Not quite! Price elasticity measures"
-                "how strongly quantity demanded reacts to a price change."
+
+            st.info(
+                "More practice questions for this subject will be added soon."
             )
-    else:
-        st.info(
-            "More practice questions for this subject will be added soon."
+
+        st.markdown("---")
+
+        st.markdown("### AI Question Generator")
+
+        st.write(
+            "Generate practice questions based on your uploaded learning material."
         )
+
+        if st.button("Generate Questions with AI"):
+
+            client = get_gemini_client()
+
+            if not st.session_state.pdf_text:
+
+                st.warning("Please upload a PDF in My Library first.")
+            elif client is None:
+
+                st.error("Gemini connection unavailable")
+
+            else:
+
+                with st.spinner("Generating questions..."):
+
+                    try:
+
+                        prompt = f"""
+                        Based on the following study material,
+                        create 5 practice questions.
+
+                        Subject: {practice_subject}
+
+                        Include:
+                        1. Multiple choice questions
+                        2. Correct answers
+                        3. Short explanations
+
+                        Study material:
+
+                        {st.session_state.pdf_text[:25000]}  
+                        """
+
+                        response = client.models.generate_content(
+                            model="gemini-flash-lastest",
+                            contents=prompt
+                        )
+
+                        st.sessin_state.generated_questions = response.text
+
+                    except Exception as e:
+
+                        st.error(f"Generation failed: {e}")
+
+        if "generated_questions" in st.session_state:
+
+            st.markdown("### Generated Practice Questions")
+
+            st.markdown(st.session_state.generated_questions)
+
+                
 # =============================
-# 8. Learning Analytics
+# 10. LEARNING ANALYTICS
 # =============================
 
 elif page == "▦ Learning Analytics":
@@ -645,7 +821,7 @@ elif page == "▦ Learning Analytics":
     st.markdown(
         """
         <div class="main-title">
-            Practice <span class="gradient-text">Analytics.</span>
+            Learning <span class="gradient-text">Analytics.</span>
             </div>
             <div class="subtitle">
                 Every small step takes you closer to your goals.
@@ -657,29 +833,19 @@ elif page == "▦ Learning Analytics":
     col1, col2 = st.columns(2)
 
     with col1:
-        st.markdown(
-            """
-            <div class="metric-card">
-                <div class="metric-label">COMPLETED QUSTIONS</div>
-                <div class="metric-value">{st.session_state.completed_questions}</div>
-                <div class="metric-caption">Questions answered in this session</div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
 
-    with col1:
-        st.markdown(
-            """
-            <div class="metric-card">
-                <div class="metric-label">SAVED NOTES</div>
-                <div class="metric-value">{len(st.session_state.notes)}</div>
-                <div class="metric-caption">Questions answered in this session</div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+        st.metric(
+            "COMPLETED QUESTIONS",
+            st.session_state.completed_questions
+        )
+        
+    with col2:
 
+        st.metric(
+            "SAVED NOTES",
+            len(st.session_state.notes)
+        )
+            
     st.markdown("---")
 
     st.markdown("### ۞ Daily Progress")
@@ -689,7 +855,7 @@ elif page == "▦ Learning Analytics":
         1.0
     )
 
-    st.progress(progressc)
+    st.progress(progress)
 
     st.write(
         f"{st.session_state.completed_tasks} of "
@@ -706,8 +872,24 @@ elif page == "▦ Learning Analytics":
         else:
             st.success("Daily goal achieved! Great work!")
 
+        st.markdown("---")
+
+        st.markdown("### Your Learning Summary")
+
+        st.write(f"✌ Total notes: {len(st.session_state.notes)}")
+
+        st.write(
+            f"★ Questions completed:"
+            f"{st.session_state.completed_questions}"
+        )
+
+        st.write(
+            f"❁ Study tasks completed:"
+            f"{st.session_state.completed_tasks}"
+        )
+
 # ====================================
-# 9. My Library
+# 11. My Library
 # ====================================
 
 elif page == "㉿ My Library":
@@ -716,9 +898,10 @@ elif page == "㉿ My Library":
         """
         <div class="main-title">
             My <span class="gradient-text">Library.</span>
-            </div>
-            <div class="subtitle">
-                All your learning materials, in one place.
+        </div>
+
+        <div class="subtitle">
+            All your learning materials, in one place.
         </div>
         """,
         unsafe_allow_html=True
@@ -727,12 +910,21 @@ elif page == "㉿ My Library":
     st.markdown(
         """
         <div class="metric-card">
-            <div class="hero-label">YOUR PERSONAL RESOURCE CENTER</div>
-            <div class="hero-heading">Your materials.<br>Your Knowledge.</div>   
+  
+            <div class="hero-label">
+                YOUR PERSONAL RESOURCE CENTER
+            </div>
+
+            <div class="hero-heading">
+                Your materials.<br>
+                Your Knowledge.
+            </div>
+
             <div class="hero-description">
                 Upload your learning materials and prepare them
                 for future AI-powered analysis.
             </div>
+
         </div>
         """,
         unsafe_allow_html=True
@@ -741,21 +933,92 @@ elif page == "㉿ My Library":
     st.markdown("### ☂ Upload Learning Materials")
 
     uploaded_file = st.file_uploader(
-        "Choose a PDF or TXT file",
-        type=["pdf", "text"]
+        "Choose a PDF file",
+        type=["pdf"]
     )
 
     if uploaded_file is not None:
 
-        st.success(f"File received: {uploaded_file.name}")
+        try:
+
+            pdf = PdfReader(
+                BytesIO(uploaded_file.getvalue())
+            )
+
+            text_content = ""
+
+            for page in pdf.pages:
+
+                page_text = page.extract_text() or ""
+
+                text_content += page_text + "/n"
+
+            st.session_state.pdf_text = text_content
+
+            st.session_state.pdf_name = uploaded_file.name
+
+            st.success(
+                f"Successfully uploaded: {uploaded_file.name}"
+            )
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+
+                st.metric(
+                    "Total Pages",
+                    len(pdf.pages)
+                )
+
+            with col2:
+
+                st.metric(
+                    "Characters",
+                    len(text_content)
+                )
+
+            st.markdown("---")
+
+            st.markdown("### Extracted PDF Content")
+
+            if text_content.strip():
+
+                st.text_area(
+                    "PDF Text",
+                    value=text_content,
+                    height=350
+                )
+
+            else:
+
+                st.warning(
+                    "Your PDF is ready for AI analysis!"
+                )
+
+        except Exception as e:
+
+            st.error(f"Could not PDF: {e}")
+
+    elif st.session_state.pdf_name:
 
         st.info(
-            "File upload is working. Automatic document reading "
-            "and AI analysis will be added in a future update."
+            f"Previously uploaded PDF:{st.session_state.pdf_name}"
         )
 
+        st.write(
+            "The extracted text is available during this session."
+        )
+
+        if st.button("Remove Uploaded Material"):
+
+            st.session_state.pdf_text = ""
+
+            st.session_state.pdf_name = ""
+
+            st.rerun()
+
 # =======================
-# 10. Footer
+# 12. Footer
 # =======================
 
 st.markdown(
@@ -766,72 +1029,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
-# ==========================
-# 11. PDF Upload & Reader
-# ==========================
-
-import streamlit as st
-from pypdf import PdfReader
-from io import BytesIO
-
-st.markdown("---")
-
-st.markdown(
-    """
-    <h2 style="color:#477C9B;">
-        ㉿ My PDF Library
-    </h2>
-    <p style="color:#8296A8;">
-        Upload your study materials and let StudyMate AI read them.
-    </p>
-    """,
-    unsafe_allow_html=True
-)
-
-uploaded_pdf = st.file_uploader(
-    "Upload your PDF study material",
-    type=["pdf"],
-    help="Choose a PDF file from your computer."
-)
-
-if uploaded_pdf is not None:
-
-    try:
-        pdf = PdfReader(BytesIO(uploaded_pdf.getvalue()))
-
-        text_content = ""
-
-        for page in pdf.pages:
-            page_text = page.extract_text() or ""
-            text_content += page_text + "/n"
-
-        st.success("PDF uploaded successfully!")
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-           st.metric("Total Pages", len(pdf.pages0)) 
-
-        with col2:
-            st.metric("Characters", len(text_content))
-
-        st.markdown("### ✉ Extracted Content")
-
-        if text_content.strip():
-            st.text_area(
-                "PDF Text",
-                value=text_content,
-                height=400
-            )
-        else:
-            st.warning(
-                "No readable text found."
-                "This PDF may contain scanned images."
-            )
-    except Exception as e:
-        st.error(f"Could not rea PDF: {e}")
-
 
 
 
