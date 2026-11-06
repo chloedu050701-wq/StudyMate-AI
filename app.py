@@ -593,7 +593,7 @@ elif page == "☃ AI Learning":
 
                     models =[
                         "gemini-3.8-flash",
-                        "gemini-3.5-flash-lire"
+                        "gemini-3.5-flash-lite"
                     ]
 
                     response = None
