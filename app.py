@@ -3,6 +3,7 @@ from google import genai
 from pypdf import PdfReader
 from io import BytesIO
 from datetime import datetime
+import time
 
 
 # =======================
@@ -590,73 +591,53 @@ elif page == "☃ AI Learning":
 
                  with st.spinner("StudyMate AI is thinking..."):
 
-                     try:
+                    models =[
+                        "gemini-3.8-flash",
+                        "gemini-3.5-flash-lire"
+                    ]
 
-                         prompt = f"""
-                         You are StudyMate AI, a helpful educational assistant.
+                    response = None
 
-                         The student's current subjeck is: {subject}
+                    for model_name in models:
+                        for attempt in range(2):
+                            try:
+                                response = client.models.generate_content(
+                                    model=model_name,
+                                    contents=user_question
+                                )
+                                break
 
-                         Please explain concepts clearly and step by step.
+                            except Exception as e:
+                                error_message = str(e)
 
-                         Use examples when useful.
+                                if "503" in error_message or "UNAVAILABLE" in error_message:
+                                    time.sleep(2 * (attempt + 1))
+                                    continue
 
-                         Answer in the same language as the student's question.
-
-                         """
-
-                         if use_pdf and st.session_state.pdf_text:
-
-                             prompt += f"""
-                             
-                             The student has uploaded this learning material:
-
-                             {st.session_state.pdf_text[:30000]}
-                            
-                             Use this material as the primary reference.
-
-                             """
-
-                         prompt += f"""
-                         Student's question:
-
-                         {user_question}
-                         """
-
-                         response = client.models.generate_content(
-                             model="gemini-3.8-flash",
-                             contents=prompt
-                         )
-
-                         answer = response.text or "No response received."
-
-                         st.session_state.chat_history.append(
-                             {
-                                 "question": user_question,
-                                 "answer": answer
-                             }
-                         )
-                     except Exception as e:
-
-                         st.error(f"AI request failed: {e}")
-
+                                break
+                 if response is None:
+                        st.error("AI is temporarily unavailable. Please try again later.")
+                 else:
+                      st.write(response.text)
+                        
+    
          if st.session_state.chat_history:
 
-             st.markdown("---")
+            st.markdown("---")
 
-             st.markdown("### Conversation History")
+            st.markdown("### Conversation History")
 
-             for chat in reversed(st.session_state.chat_history):
+            for chat in reversed(st.session_state.chat_history):
 
-                 with st.expander(chat["question"]):
+                with st.expander(chat["question"]):
 
-                     st.markdown(chat["answer"])
+                    st.markdown(chat["answer"])
 
-             if st.button("Clear Concersation:"):
+            if st.button("Clear Concersation:"):
 
-                 st.session_state.chat_history = []
+                st.session_state.chat_history = []
 
-                 st.rerun()
+                st.rerun()
 
 # =========================
 # 9. PRACTICE LAB
