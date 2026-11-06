@@ -616,7 +616,7 @@ elif page == "☃ AI Learning":
 
                                 break
                  if response is None:
-                        st.error("AI is temporarily unavailable. Please try again later.")
+                        st.error(f"AI request failed: {error_message}")
                  else:
                       st.write(response.text)
                         
